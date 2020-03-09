@@ -45,6 +45,7 @@ from onadata.libs.utils.common_tags import (DURATION, ID, KNOWN_MEDIA_TYPES,
                                             UUID, VERSION, REVIEW_STATUS,
                                             REVIEW_COMMENT,
                                             MULTIPLE_SELECT_TYPE)
+from onadata.libs.utils.common_tools import get_uuid
 from onadata.libs.utils.model_tools import queryset_iterator
 from onadata.libs.utils.mongo import _encode_for_mongo
 
@@ -720,7 +721,7 @@ class XForm(XFormMixin, BaseModel):
     deleted_at = models.DateTimeField(blank=True, null=True)
     last_submission_time = models.DateTimeField(blank=True, null=True)
     has_start_time = models.BooleanField(default=False)
-    uuid = models.CharField(max_length=36, default=u'', db_index=True)
+    uuid = models.CharField(max_length=36, default=get_uuid)
     public_key = models.TextField(default='', blank=True, null=True)
 
     uuid_regex = re.compile(r'(<instance>.*?id="[^"]+">)(.*</instance>)(.*)',

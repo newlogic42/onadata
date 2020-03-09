@@ -3,6 +3,7 @@
 test_xform module
 """
 import os
+import mock
 
 from builtins import str as text
 from past.builtins import basestring  # pylint: disable=redefined-builtin
@@ -166,6 +167,26 @@ class TestXForm(TestBase):
             check_xform_uuid(self.xform.uuid)
         except DuplicateUUIDError as e:
             self.fail("DuplicateUUIDError raised: %s" % e)
+
+    @mock.patch('onadata.apps.viewer.models.data_dictionary.set_uuid')
+    def test_gen_xform_uuid(self, set_uuid_mock):
+        """
+        Test that an XForms uuid is always set by default on new XForm
+        Objects
+        """
+        self._publish_transportation_form()
+        uuid = self.xform.uuid
+        # The _publish_transportation_form uses the DataDictionary
+        # Model which has some processing steps that ensure XForms
+        # Always have uuids.
+        # Assert that set_uuid is called with an object
+        # that already has a uuid.
+        self.assertEqual(set_uuid_mock.call_count, 1)
+        self.assertEqual(set_uuid_mock.call_args[0][0].uuid, uuid)
+        # Assert that the uuid is not empty and is
+        # 32 characters in length
+        self.assertNotEqual(uuid, '')
+        self.assertEqual(len(uuid), 32)
 
     def test_id_string_max_length_on_soft_delete(self):
         """
