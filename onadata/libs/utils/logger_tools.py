@@ -127,11 +127,22 @@ def get_uuid_from_submission(xml):
     return len(split_xml) > 1 and split_xml[1] or None
 
 
-def get_xform_from_submission(xml, username, uuid=None):
-    # check alternative form submission ids
-    uuid = uuid or get_uuid_from_submission(xml)
+def get_xform_from_submission(
+        xml, request, username, uuid=None):
+    """Gets the submissions target XForm.
 
-    if not username and not uuid:
+    Retrieves the target XForm by either utilizing the `uuid` param
+    or the `uuid` retrievable from the `xml` or the `id_string`
+    retrievable from the XML. Only returns form if `request_user` has
+    permission to submit.
+
+    :param (str) xml: The submission in XML form
+    :param (django.http.request) request: Request object
+    :param (str) username: The owner of the target XForm
+    :param (str) uuid: The target XForms universally unique identifier.
+    Default: None
+    """
+    if not uuid and not username:
         raise InstanceInvalidUserError()
 
     if uuid:
@@ -139,17 +150,25 @@ def get_xform_from_submission(xml, username, uuid=None):
         if XForm.objects.filter(
                 uuid=uuid, deleted_at__isnull=True).count() > 0:
             xform = XForm.objects.get(uuid=uuid, deleted_at__isnull=True)
-
-            return xform
+            try:
+                # Verify request user has permission to make submissions to the
+                # XForm
+                check_submission_permissions(request, xform)
+                return xform
+            except PermissionDenied as e:
+                # Check if the owner_username is equal to the XForm owner
+                # Assumption: If the owner_username is equal to the XForm
+                # owner we've retrieved the correct form.
+                if username and xform.user.username == username:
+                    raise e
 
     id_string = get_id_string_from_xml_str(xml)
-
     try:
         return get_object_or_404(
-            XForm,
-            id_string__iexact=id_string,
-            user__username__iexact=username,
-            deleted_at__isnull=True)
+                XForm,
+                id_string__iexact=id_string,
+                user__username__iexact=username,
+                deleted_at__isnull=True)
     except MultipleObjectsReturned:
         raise NonUniqueFormIdError()
 
@@ -305,11 +324,10 @@ def create_instance(username,
         if request and request.user.is_authenticated else None
 
     if username:
-        # TODO: Why do we lower the username here ?
         username = username.lower()
 
     xml = xml_file.read()
-    xform = get_xform_from_submission(xml, username, uuid)
+    xform = get_xform_from_submission(xml, request, username, uuid)
     check_submission_permissions(request, xform)
     checksum = sha256(xml).hexdigest()
 
